@@ -1,0 +1,122 @@
+name: Build aTox with tox4j
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Позволяет запускать вручную
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      # 1. Клонируем репозиторий
+      - name: Checkout aTox
+        uses: actions/checkout@v4
+        with:
+          path: atox
+          fetch-depth: 1
+
+      # 2. Настраиваем окружение
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 11076708
+          packages: 'platforms;android-34 build-tools;34.0.0 platform-tools ndk;26.1.10909125'
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libsodium-dev
+
+      - name: Install SBT
+        run: |
+          echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list
+          curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC824" | sudo apt-key add
+          sudo apt-get update
+          sudo apt-get install -y sbt
+
+      # 3. Собираем и публикуем tox4j
+      - name: Build and publish tox4j
+        run: |
+          cd ~
+          git clone --depth 1 --branch 0.2.20 https://github.com/TokTok/tox4j.git
+          cd tox4j
+          
+          # Сборка хост-инструментов
+          ./scripts/build-host -j4
+          
+          # Сборка нативных библиотек для Android
+          ./scripts/build-aarch64-linux-android -j4 release
+          ./scripts/build-armv7a-linux-androideabi -j4 release
+          ./scripts/build-x86_64-linux-android -j4 release
+          
+          # Публикация в локальный Maven
+          sbt publishLocal
+          
+          # Копируем в кеш для следующего шага
+          mkdir -p ~/.m2-cache
+          cp -r ~/.m2/repository/org/toktok ~/.m2-cache/
+
+      # 4. Восстанавливаем локальный Maven для aTox
+      - name: Restore local Maven for aTox
+        run: |
+          mkdir -p ~/.m2/repository/org
+          cp -r ~/.m2-cache/toktok ~/.m2/repository/org/
+
+      # 5. Собираем aTox
+      - name: Build aTox
+        run: |
+          cd atox
+          
+          # Создаём local.properties
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          
+          # Создаём gradle.properties с настройками памяти
+          cat > gradle.properties << EOF
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          EOF
+          
+          # Сборка отладочной и релизной версий
+          ./gradlew :atox:assembleDebug :atox:assembleRelease --no-daemon --stacktrace
+
+      # 6. Загружаем артефакты
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: aTox-APKs
+          path: |
+            atox/atox/build/outputs/apk/debug/*.apk
+            atox/atox/build/outputs/apk/release/*.apk
+          retention-days: 7
+          if-no-files-found: error
+
+      # 7. (Опционально) Создаём релиз на GitHub
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            atox/atox/build/outputs/apk/release/*.apk
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
