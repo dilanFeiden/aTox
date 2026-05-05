@@ -43,14 +43,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake libsodium-dev
 
-      # ✅ Исправленная установка SBT через Coursier
-      - name: Install SBT via Coursier
-        run: |
-          curl -fL https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-linux.gz | gzip -d > cs
-          chmod +x cs
-          ./cs install sbt scala
-          echo "$HOME/.local/share/coursier/bin" >> $GITHUB_PATH
-          sbt --version
+      # ✅ Простая установка SBT
+      - name: Install SBT
+        uses: sbt/setup-sbt@v1
 
       - name: Build and publish tox4j
         run: |
@@ -58,13 +53,18 @@ jobs:
           git clone --depth 1 --branch 0.2.20 https://github.com/TokTok/tox4j.git
           cd tox4j
           
+          # Сборка хост-инструментов
           ./scripts/build-host -j4
+          
+          # Сборка нативных библиотек
           ./scripts/build-aarch64-linux-android -j4 release
           ./scripts/build-armv7a-linux-androideabi -j4 release
           ./scripts/build-x86_64-linux-android -j4 release
           
+          # Публикация в локальный Maven
           sbt publishLocal
           
+          # Копируем для следующего шага
           mkdir -p ~/.m2-cache
           cp -r ~/.m2/repository/org/toktok ~/.m2-cache/
 
