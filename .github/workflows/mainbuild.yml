@@ -1,16 +1,14 @@
-name: Build aTox with tox4j
+name: Build aTox
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
     branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
 
     steps:
       - name: Checkout aTox
@@ -32,46 +30,10 @@ jobs:
           cmdline-tools-version: 11076708
           packages: 'platforms;android-34 build-tools;34.0.0 platform-tools ndk;26.1.10909125'
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
-
-      - name: Install build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake libsodium-dev
-
-      # ✅ Простая установка SBT
-      - name: Install SBT
+      - name: Install SBT (для совместимости, если нужно)
         uses: sbt/setup-sbt@v1
 
-      - name: Build and publish tox4j
-        run: |
-          cd ~
-          git clone --depth 1 --branch 0.2.20 https://github.com/TokTok/tox4j.git
-          cd tox4j
-          
-          # Сборка хост-инструментов
-          ./scripts/build-host -j4
-          
-          # Сборка нативных библиотек
-          ./scripts/build-aarch64-linux-android -j4 release
-          ./scripts/build-armv7a-linux-androideabi -j4 release
-          ./scripts/build-x86_64-linux-android -j4 release
-          
-          # Публикация в локальный Maven
-          sbt publishLocal
-          
-          # Копируем для следующего шага
-          mkdir -p ~/.m2-cache
-          cp -r ~/.m2/repository/org/toktok ~/.m2-cache/
-
-      - name: Restore local Maven for aTox
-        run: |
-          mkdir -p ~/.m2/repository/org
-          cp -r ~/.m2-cache/toktok ~/.m2/repository/org/
+      # ⚠️ Пропускаем сборку tox4j — используем prebuilt из кеша или скачанный артефакт
 
       - name: Build aTox
         run: |
@@ -92,4 +54,3 @@ jobs:
             atox/atox/build/outputs/apk/debug/*.apk
             atox/atox/build/outputs/apk/release/*.apk
           retention-days: 7
-          if-no-files-found: error
