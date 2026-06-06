@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:DnDChar.Windows.ViewModels"
+              x:Class="DnDChar.Windows.MainPage"
+               Title="DnD Char - Персонажи"
+               BackgroundColor="{AppThemeBinding Light=White, Dark=#1A1A2E}">
+
+    <ContentPage.Resources>
+        <Style x:Key="CharFrame" TargetType="Frame">
+            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#E8E8F0, Dark=#2D2D44}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="HasShadow" Value="False" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,*" Padding="16">
+        <VerticalStackLayout Grid.Row="0" Spacing="8" Margin="0,0,0,8">
+            <Label Text="D&amp;D 5e Персонажи"
+                   FontSize="28" FontAttributes="Bold"
+                   HorizontalOptions="Center" />
+            <Label Text="DnDChar.Windows"
+                   FontSize="14" TextColor="Gray"
+                   HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
+        <HorizontalStackLayout Grid.Row="1" Spacing="8" Margin="0,0,0,8">
+            <Button Text="Создать"
+                    Command="{Binding CreateCharacterCommand}"
+                    BackgroundColor="#512BD4" TextColor="White"
+                    FontAttributes="Bold" />
+            <Button Text="Импорт"
+                    Command="{Binding ImportCharacterCommand}"
+                    BackgroundColor="#2B5797" TextColor="White" />
+            <Button Text="{Binding ThemeButtonText}"
+                    Command="{Binding ToggleThemeCommand}"
+                    BackgroundColor="Gray" TextColor="White" />
+            <Button Text="Кости"
+                    Command="{Binding OpenDiceRollerCommand}"
+                    BackgroundColor="#E69138" TextColor="White" />
+        </HorizontalStackLayout>
+
+        <CollectionView Grid.Row="2"
+                        ItemsSource="{Binding Characters}"
+                        SelectionMode="None">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8">
+                    <Label Text="Нет персонажей"
+                           FontSize="20" HorizontalOptions="Center" TextColor="Gray" />
+                    <Label Text="Создайте нового или импортируйте существующего"
+                           FontSize="14" HorizontalOptions="Center" TextColor="Gray" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Style="{StaticResource CharFrame}" Padding="12" Margin="0,4">
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MainViewModel}}, Path=OpenCharacterCommand}"
+                                                  CommandParameter="{Binding .}" />
+                        </Frame.GestureRecognizers>
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <Label Text="{Binding Name}" FontSize="18" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+                            <Label Grid.Row="1" FontSize="14" TextColor="Gray">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{Binding Race}" />
+                                        <Span Text=" — " />
+                                        <Span Text="{Binding Class}" />
+                                        <Span Text=", ур. " />
+                                        <Span Text="{Binding Level}" />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                            <Label Grid.Column="1" Grid.RowSpan="2"
+                                   TextColor="#512BD4" FontSize="24" FontAttributes="Bold"
+                                   VerticalOptions="Center"
+                                   Text="{Binding Level, StringFormat='Ур. {0}'}" />
+                        </Grid>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>
